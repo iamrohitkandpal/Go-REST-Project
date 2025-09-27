@@ -8,12 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/iamrohitkandpal/Go-REST-Project/internal/types"
 	"github.com/iamrohitkandpal/Go-REST-Project/internal/utils/response"
 )
 
 func New() http.HandlerFunc {
-	return func (w http.ResponseWriter, r *http.Request)  {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slog.Info("Creating a Student")
 
 		var student types.Student
 
@@ -23,7 +25,18 @@ func New() http.HandlerFunc {
 			return
 		}
 
-		slog.Info("Creating a Student")
-		response.WriteJson(w, http.StatusCreated, map[string] string {"success": "OK"})
+		if err != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err))
+			return
+		}
+
+		// Request Validation
+		if err := validator.New().Struct(student); err != nil {
+			validateErrs := err.(validator.ValidationErrors)
+			response.WriteJson(w, http.StatusBadRequest, response.ValidationError(validateErrs))
+			return 
+		}
+
+		response.WriteJson(w, http.StatusCreated, map[string]string{"success": "OK"})
 	}
 }
