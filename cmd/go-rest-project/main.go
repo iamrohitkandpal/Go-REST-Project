@@ -13,17 +13,26 @@ import (
 
 	"github.com/iamrohitkandpal/Go-REST-Project/internal/config"
 	"github.com/iamrohitkandpal/Go-REST-Project/internal/http/handlers/student"
+	"github.com/iamrohitkandpal/Go-REST-Project/internal/storage/sqlite"
 )
 
 func main() {
 	// Loading Config
 	cfg := config.MustLoad()
 
+	// Database Setup
+	storage, err := sqlite.New(*cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	slog.Info("Storage Initialized", slog.String("env", cfg.Env), slog.String("version", "1.0.0"))
 
 	// Router Setup
 	router := http.NewServeMux()
 
-	router.HandleFunc("POST /api/students", student.New())
+	router.HandleFunc("POST /api/students", student.New(storage))
+	router.HandleFunc("GET /api/students/{id}", student.GetById(storage))
+	router.HandleFunc("GET /api/students/", student.GetAll(storage))
 
 
 	// Server Setup
