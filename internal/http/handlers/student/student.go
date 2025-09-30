@@ -95,7 +95,7 @@ func GetAll(storage storage.Storage) http.HandlerFunc {
 func UpdateOne(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		slog.Info("getting a student", slog.String("id", id))
+		slog.Info("updating a student", slog.String("id", id))
 
 		intId, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
@@ -103,20 +103,39 @@ func UpdateOne(storage storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		student, err := storage.GetStudentById(intId)
+		var student types.Student
+		err = json.NewDecoder(r.Body).Decode(&student)
+		if errors.Is(err, io.EOF) {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("empty body")))
+			return
+		}
+
 		if err != nil {
-			slog.Error("Error getting user", slog.String("id", id))
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err))
+			return
+		}
+
+		if err := validator.New().Struct(student); err != nil {
+			validateErrs := err.(validator.ValidationErrors)
+			response.WriteJson(w, http.StatusBadRequest, response.ValidationError(validateErrs))
+			return
+		}
+
+		updatedStudent, err := storage.UpdateStudentById(intId, student.Name, student.Email, student.Age)
+		if err != nil {
+			slog.Error("Error updating student", slog.String("id", id), slog.String("error", err.Error()))
 			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
 			return
 		}
 
-		response.WriteJson(w, http.StatusOK, student)
+		response.WriteJson(w, http.StatusOK, updatedStudent)
 	}
 }
+
 func DeleteOne(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		slog.Info("getting a student", slog.String("id", id))
+		slog.Info("deleting a student", slog.String("id", id))
 
 		intId, err := strconv.ParseInt(id, 10, 64)
 		if err != nil {
@@ -124,13 +143,16 @@ func DeleteOne(storage storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		student, err := storage.GetStudentById(intId)
+		deletedStudent, err := storage.DeleteStudentById(intId)
 		if err != nil {
-			slog.Error("Error getting user", slog.String("id", id))
+			slog.Error("Error deleting user", slog.String("id", id), slog.String("error", err.Error()))
 			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(err))
 			return
 		}
 
-		response.WriteJson(w, http.StatusOK, student)
+		response.WriteJson(w, http.StatusOK, map[string]interface{}{
+			"message": "Student deletd successfully",
+			"student": deletedStudent,
+		})
 	}
 }

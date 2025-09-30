@@ -39,7 +39,7 @@ func New(cfg config.Config) (*Sqlite, error) {
 func (s *Sqlite) CreateStudent(name string, email string, age int) (int64, error) {
 	statement, err := s.Db.Prepare("INSERT INTO students (name, email, age) VALUES (?, ?, ?)")
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 
 	defer statement.Close()
@@ -112,4 +112,56 @@ func (s *Sqlite) GetAllStudents() ([]types.Student, error) {
 	}
 
 	return students, nil
+}
+
+
+func (s *Sqlite) UpdateStudentById(id int64, name string, email string, age int) (types.Student, error) {
+    // First check if student exists
+    _, err := s.GetStudentById(id)
+    if err != nil {
+        return types.Student{}, err
+    }
+
+    // Update the student
+    statement, err := s.Db.Prepare("UPDATE students SET name = ?, email = ?, age = ? WHERE id = ?")
+    if err != nil {
+        return types.Student{}, err
+    }
+    defer statement.Close()
+
+    _, err = statement.Exec(name, email, age, id)
+    if err != nil {
+        return types.Student{}, err
+    }
+
+    // Return updated student
+    updatedStudent := types.Student{
+        Id:    id,
+        Name:  name,
+        Email: email,
+        Age:   age,
+    }
+
+    return updatedStudent, nil
+}
+
+
+func (s *Sqlite) DeleteStudentById(id int64) (types.Student, error) {
+	student, err := s.GetStudentById(id)
+	if err != nil {
+		return types.Student{}, err
+	}
+
+	statement, err := s.Db.Prepare("DELETE FROM students WHERE id = ?")
+	if err != nil {
+		return types.Student{}, err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(id)
+	if err != nil {
+		return types.Student{}, err
+	}
+
+	return student, nil
 }
